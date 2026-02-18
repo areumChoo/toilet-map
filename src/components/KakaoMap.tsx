@@ -131,13 +131,17 @@ export default function KakaoMap({
           <span style="font-size:18px;line-height:1;">🚻</span>
         </div>
       `;
-      el.addEventListener("click", () => onMarkerClick(b));
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onMarkerClick(b);
+      });
 
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(b.lat, b.lng),
         content: el,
         map,
         yAnchor: 1,
+        clickable: true,
       });
       markersRef.current.push(overlay);
     });
