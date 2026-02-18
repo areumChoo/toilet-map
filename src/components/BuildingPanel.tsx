@@ -132,6 +132,10 @@ export default function BuildingPanel({
       const data = await res.json();
       if (data.id) {
         setPasswords((prev) => [data, ...prev]);
+        // 비밀번호 등록 시 새 toilet이 생성될 수 있으므로 목록 갱신
+        const toiletRes = await fetch(`/api/buildings/${buildingId}/toilets`);
+        const toiletData = await toiletRes.json();
+        if (Array.isArray(toiletData)) setToilets(toiletData);
       }
     } catch {
       // 에러 처리
