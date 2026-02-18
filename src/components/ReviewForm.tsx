@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Toilet } from "@/types";
 
 interface ReviewFormProps {
@@ -34,6 +34,13 @@ export default function ReviewForm({
   const [formToiletId, setFormToiletId] = useState<string | null>(
     selectedToiletId ?? (toilets.length === 1 ? toilets[0].id : null)
   );
+
+  // toilets가 나중에 로드되는 경우 자동 선택
+  useEffect(() => {
+    if (!selectedToiletId && toilets.length === 1) {
+      setFormToiletId(toilets[0].id);
+    }
+  }, [toilets, selectedToiletId]);
 
   const resolvedToiletId = selectedToiletId ?? formToiletId;
   const needsToiletSelection =
