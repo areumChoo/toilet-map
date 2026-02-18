@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { SelectedBuilding, Password } from "@/types";
+import type { SelectedBuilding, Password, Toilet } from "@/types";
 import PasswordCard from "./PasswordCard";
 import PasswordForm from "./PasswordForm";
+import ReviewSection from "./ReviewSection";
 
 interface BuildingPanelProps {
   building: SelectedBuilding | null;
@@ -16,6 +17,8 @@ export default function BuildingPanel({
 }: BuildingPanelProps) {
   const [buildingId, setBuildingId] = useState<string | null>(null);
   const [passwords, setPasswords] = useState<Password[]>([]);
+  const [toilets, setToilets] = useState<Toilet[]>([]);
+  const [selectedToiletId, setSelectedToiletId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -76,6 +79,8 @@ export default function BuildingPanel({
   const loadBuilding = useCallback(async (b: SelectedBuilding) => {
     setLoading(true);
     setPasswords([]);
+    setToilets([]);
+    setSelectedToiletId(null);
     setBuildingId(null);
 
     try {
@@ -87,9 +92,14 @@ export default function BuildingPanel({
       const data = await res.json();
       if (data.id) {
         setBuildingId(data.id);
-        const pwRes = await fetch(`/api/buildings/${data.id}/passwords`);
+        const [pwRes, toiletRes] = await Promise.all([
+          fetch(`/api/buildings/${data.id}/passwords`),
+          fetch(`/api/buildings/${data.id}/toilets`),
+        ]);
         const pwData = await pwRes.json();
+        const toiletData = await toiletRes.json();
         if (Array.isArray(pwData)) setPasswords(pwData);
+        if (Array.isArray(toiletData)) setToilets(toiletData);
       }
     } catch {
       // 네트워크 에러
@@ -251,6 +261,45 @@ export default function BuildingPanel({
                 비밀번호 등록
               </p>
               <PasswordForm onSubmit={handleAddPassword} />
+            </div>
+          )}
+
+          {/* 간단평가 */}
+          {buildingId && (
+            <div className="border-t border-gray-100 pt-3">
+              <p className="mb-2 text-xs font-medium text-gray-500">간단평가</p>
+              {toilets.length >= 2 && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSelectedToiletId(null)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      selectedToiletId === null
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                    }`}
+                  >
+                    전체
+                  </button>
+                  {toilets.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedToiletId(t.id)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        selectedToiletId === t.id
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                      }`}
+                    >
+                      {t.location}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <ReviewSection
+                buildingId={buildingId}
+                toilets={toilets}
+                selectedToiletId={selectedToiletId}
+              />
             </div>
           )}
         </div>
