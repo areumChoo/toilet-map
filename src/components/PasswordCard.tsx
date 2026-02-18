@@ -1,17 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Password } from "@/types";
 import { REPORT_THRESHOLD } from "@/lib/constants";
+import { hasReportedPassword, markPasswordReported } from "@/lib/local-actions";
 
 interface PasswordCardProps {
   password: Password;
-  onReport: (id: string) => void;
+  onReport: (id: string) => Promise<boolean>;
 }
 
 export default function PasswordCard({ password, onReport }: PasswordCardProps) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
+
+  useEffect(() => {
+    setReported(hasReportedPassword(password.id));
+  }, [password.id]);
 
   const handleCopy = async () => {
     try {
@@ -25,7 +31,11 @@ export default function PasswordCard({ password, onReport }: PasswordCardProps) 
 
   const handleReport = async () => {
     setReporting(true);
-    await onReport(password.id);
+    const success = await onReport(password.id);
+    if (success) {
+      markPasswordReported(password.id);
+      setReported(true);
+    }
     setReporting(false);
   };
 
@@ -78,13 +88,19 @@ export default function PasswordCard({ password, onReport }: PasswordCardProps) 
         </div>
 
         {/* 신고 */}
-        <button
-          onClick={handleReport}
-          disabled={reporting}
-          className="shrink-0 rounded-full px-2 py-1 text-xs text-gray-400 active:bg-gray-100 disabled:opacity-50"
-        >
-          신고 {password.report_count > 0 && `(${password.report_count})`}
-        </button>
+        {reported ? (
+          <span className="shrink-0 rounded-full px-2 py-1 text-xs text-orange-500">
+            신고완료
+          </span>
+        ) : (
+          <button
+            onClick={handleReport}
+            disabled={reporting}
+            className="shrink-0 rounded-full px-2 py-1 text-xs text-gray-400 active:bg-gray-100 disabled:opacity-50"
+          >
+            신고 {password.report_count > 0 && `(${password.report_count})`}
+          </button>
+        )}
       </div>
 
       {isWarning && (

@@ -5,6 +5,7 @@ import type { Review, ReviewSummary as ReviewSummaryType, Toilet } from "@/types
 import ReviewSummaryComponent from "./ReviewSummary";
 import ReviewCard from "./ReviewCard";
 import ReviewForm from "./ReviewForm";
+import { hasReviewedToilet, markToiletReviewed } from "@/lib/local-actions";
 
 interface ReviewSectionProps {
   buildingId: string;
@@ -22,6 +23,17 @@ export default function ReviewSection({
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+
+  // 선택된 화장실이 변경되면 리뷰 여부 확인
+  useEffect(() => {
+    if (selectedToiletId) {
+      setAlreadyReviewed(hasReviewedToilet(selectedToiletId));
+    } else {
+      // "전체" 탭: 모든 toilet 중 하나라도 리뷰했으면 true
+      setAlreadyReviewed(toilets.some((t) => hasReviewedToilet(t.id)));
+    }
+  }, [selectedToiletId, toilets]);
 
   const fetchReviews = useCallback(async () => {
     try {
@@ -62,10 +74,20 @@ export default function ReviewSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, toilet_id: toiletId }),
       });
+
       if (res.ok) {
+        markToiletReviewed(toiletId);
+        setAlreadyReviewed(true);
         setShowForm(false);
         setLoading(true);
         await fetchReviews();
+      } else if (res.status === 409) {
+        markToiletReviewed(toiletId);
+        setAlreadyReviewed(true);
+        setShowForm(false);
+        alert("이미 이 화장실에 평가를 등록했습니다");
+      } else if (res.status === 429) {
+        alert("너무 많은 요청입니다. 잠시 후 다시 시도해주세요.");
       }
     } catch {
       // 에러 처리
@@ -119,7 +141,11 @@ export default function ReviewSection({
       )}
 
       {/* 폼 토글 */}
-      {showForm ? (
+      {alreadyReviewed ? (
+        <p className="py-2 text-center text-xs text-gray-400">
+          이미 평가를 등록했습니다
+        </p>
+      ) : showForm ? (
         <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3">
           <ReviewForm
             onSubmit={handleSubmit}

@@ -5,6 +5,7 @@ import type { SelectedBuilding, Password, Toilet } from "@/types";
 import PasswordCard from "./PasswordCard";
 import PasswordForm from "./PasswordForm";
 import ReviewSection from "./ReviewSection";
+import { markPasswordReported } from "@/lib/local-actions";
 
 interface BuildingPanelProps {
   building: SelectedBuilding | null;
@@ -122,6 +123,12 @@ export default function BuildingPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ location, password }),
       });
+
+      if (res.status === 429) {
+        alert("너무 많은 요청입니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+
       const data = await res.json();
       if (data.id) {
         setPasswords((prev) => [data, ...prev]);
@@ -131,19 +138,33 @@ export default function BuildingPanel({
     }
   };
 
-  const handleReport = async (id: string) => {
+  const handleReport = async (id: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/passwords/${id}/report`, {
         method: "PATCH",
       });
+
+      if (res.status === 409) {
+        markPasswordReported(id);
+        alert("이미 신고한 비밀번호입니다");
+        return false;
+      }
+
+      if (res.status === 429) {
+        alert("너무 많은 요청입니다. 잠시 후 다시 시도해주세요.");
+        return false;
+      }
+
       const data = await res.json();
       if (data.id) {
         setPasswords((prev) =>
           prev.map((p) => (p.id === id ? data : p))
         );
+        return true;
       }
+      return false;
     } catch {
-      // 에러 처리
+      return false;
     }
   };
 
