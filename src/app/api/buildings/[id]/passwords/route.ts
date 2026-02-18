@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getClientIp } from "@/lib/get-ip";
+import { checkRateLimit, recordAction } from "@/lib/rate-limit";
 
 // GET: 건물별 비밀번호 목록 (toilets 조인)
 export async function GET(
@@ -43,6 +45,22 @@ export async function POST(
     );
   }
 
+  const ip = getClientIp(request);
+
+  // 전역 제한: 10분 내 5건
+  const globalCheck = await checkRateLimit(ip, {
+    action: "password",
+    maxRequests: 5,
+    windowMinutes: 10,
+  });
+
+  if (!globalCheck.allowed) {
+    return NextResponse.json(
+      { error: "너무 많은 요청입니다. 잠시 후 다시 시도해주세요." },
+      { status: 429 }
+    );
+  }
+
   // toilet upsert
   const { data: toilet, error: toiletError } = await supabase
     .from("toilets")
@@ -69,6 +87,9 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // 성공 시 기록
+  await recordAction(ip, "password");
 
   // location을 flatten하여 반환
   return NextResponse.json({ ...data, location }, { status: 201 });

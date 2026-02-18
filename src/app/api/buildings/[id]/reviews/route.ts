@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getClientIp } from "@/lib/get-ip";
+import { checkRateLimit, recordAction } from "@/lib/rate-limit";
 import type { Review, ReviewSummary } from "@/types";
 
 // GET: 건물별 리뷰 목록 + 요약 (toilets 조인, ?toilet_id= 필터링 지원)
@@ -88,6 +90,37 @@ export async function POST(
     );
   }
 
+  const ip = getClientIp(request);
+
+  // 대상별 제한: 같은 toilet에 24시간 내 1건
+  const targetCheck = await checkRateLimit(ip, {
+    action: "review",
+    maxRequests: 1,
+    windowMinutes: 24 * 60,
+    targetId: toilet_id,
+  });
+
+  if (!targetCheck.allowed) {
+    return NextResponse.json(
+      { error: "이미 이 화장실에 평가를 등록했습니다" },
+      { status: 409 }
+    );
+  }
+
+  // 전역 제한: 10분 내 10건
+  const globalCheck = await checkRateLimit(ip, {
+    action: "review",
+    maxRequests: 10,
+    windowMinutes: 10,
+  });
+
+  if (!globalCheck.allowed) {
+    return NextResponse.json(
+      { error: "너무 많은 요청입니다. 잠시 후 다시 시도해주세요." },
+      { status: 429 }
+    );
+  }
+
   // toilet이 해당 건물에 속하는지 검증
   const { data: toilet, error: toiletError } = await supabase
     .from("toilets")
@@ -120,6 +153,9 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // 성공 시 기록
+  await recordAction(ip, "review", toilet_id);
 
   return NextResponse.json(data, { status: 201 });
 }

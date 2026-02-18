@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getClientIp } from "@/lib/get-ip";
+import { checkRateLimit, recordAction } from "@/lib/rate-limit";
 
 // GET: 뷰포트 내 건물 조회
 export async function GET(request: NextRequest) {
@@ -59,7 +61,24 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (existing) {
+    // 기존 건물 반환 시 rate limit 기록 안 함
     return NextResponse.json(existing);
+  }
+
+  const ip = getClientIp(request);
+
+  // 전역 제한: 10분 내 10건
+  const globalCheck = await checkRateLimit(ip, {
+    action: "building",
+    maxRequests: 10,
+    windowMinutes: 10,
+  });
+
+  if (!globalCheck.allowed) {
+    return NextResponse.json(
+      { error: "너무 많은 요청입니다. 잠시 후 다시 시도해주세요." },
+      { status: 429 }
+    );
   }
 
   // 없으면 새로 삽입
@@ -72,6 +91,9 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // 새 건물 생성 시에만 기록
+  await recordAction(ip, "building");
 
   return NextResponse.json(data, { status: 201 });
 }
