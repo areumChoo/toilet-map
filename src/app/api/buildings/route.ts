@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("buildings")
-    .select("*, passwords(id)")
+    .select("*, toilets(id, passwords(id))")
     .gte("lat", parseFloat(swLat))
     .lte("lat", parseFloat(neLat))
     .gte("lng", parseFloat(swLng))
@@ -28,10 +28,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // 비밀번호가 1개 이상 등록된 건물만 반환
+  // toilet 중 하나라도 password가 있는 건물만 반환
   const filtered = (data ?? [])
-    .filter((b: Record<string, unknown>) => Array.isArray(b.passwords) && b.passwords.length > 0)
-    .map(({ passwords: _pw, ...rest }) => rest);
+    .filter((b: Record<string, unknown>) => {
+      const toilets = b.toilets as { passwords: unknown[] }[] | undefined;
+      return toilets?.some((t) => t.passwords.length > 0) ?? false;
+    })
+    .map(({ toilets: _t, ...rest }) => rest);
 
   return NextResponse.json(filtered);
 }
