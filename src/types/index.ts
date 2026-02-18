@@ -20,8 +20,9 @@ export interface Password {
   toilet_id: string;
   location: string;
   password: string;
-  report_count: number;
-  is_active: boolean;
+  confirm_count: number;
+  wrong_count: number;
+  last_confirmed_at: string | null;
   created_at: string;
   updated_at: string;
 }

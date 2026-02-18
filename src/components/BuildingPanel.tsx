@@ -5,7 +5,7 @@ import type { SelectedBuilding, Password, Toilet } from "@/types";
 import PasswordCard from "./PasswordCard";
 import PasswordForm from "./PasswordForm";
 import ReviewSection from "./ReviewSection";
-import { markPasswordReported } from "@/lib/local-actions";
+import { markPasswordVoted } from "@/lib/local-actions";
 
 interface BuildingPanelProps {
   building: SelectedBuilding | null;
@@ -142,15 +142,21 @@ export default function BuildingPanel({
     }
   };
 
-  const handleReport = async (id: string): Promise<boolean> => {
+  const handleVote = async (
+    id: string,
+    vote: "confirm" | "wrong",
+    newPassword?: string
+  ): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/passwords/${id}/report`, {
-        method: "PATCH",
+      const res = await fetch(`/api/passwords/${id}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vote, newPassword }),
       });
 
       if (res.status === 409) {
-        markPasswordReported(id);
-        alert("이미 신고한 비밀번호입니다");
+        markPasswordVoted(id);
+        alert("이미 투표한 비밀번호입니다");
         return false;
       }
 
@@ -160,12 +166,32 @@ export default function BuildingPanel({
       }
 
       const data = await res.json();
-      if (data.id) {
+
+      if (vote === "confirm" && data.id) {
         setPasswords((prev) =>
           prev.map((p) => (p.id === id ? data : p))
         );
+        markPasswordVoted(id);
         return true;
       }
+
+      if (vote === "wrong" && data.voted) {
+        setPasswords((prev) => {
+          const updated = prev.map((p) =>
+            p.id === id ? data.voted : p
+          );
+          if (data.createdPassword) {
+            return [
+              { ...data.createdPassword, location: prev.find((p) => p.id === id)?.location ?? "" },
+              ...updated,
+            ];
+          }
+          return updated;
+        });
+        markPasswordVoted(id);
+        return true;
+      }
+
       return false;
     } catch {
       return false;
@@ -273,7 +299,7 @@ export default function BuildingPanel({
                 <PasswordCard
                   key={pw.id}
                   password={pw}
-                  onReport={handleReport}
+                  onVote={handleVote}
                 />
               ))}
             </div>

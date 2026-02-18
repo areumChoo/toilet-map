@@ -1,4 +1,4 @@
-const REPORT_KEY = "reported_passwords";
+const VOTE_KEY = "voted_passwords";
 const REVIEW_KEY = "reviewed_toilets";
 
 function getSet(key: string): Set<string> {
@@ -22,12 +22,12 @@ function addToSet(key: string, id: string): void {
   }
 }
 
-export function hasReportedPassword(id: string): boolean {
-  return getSet(REPORT_KEY).has(id);
+export function hasVotedPassword(id: string): boolean {
+  return getSet(VOTE_KEY).has(id);
 }
 
-export function markPasswordReported(id: string): void {
-  addToSet(REPORT_KEY, id);
+export function markPasswordVoted(id: string): void {
+  addToSet(VOTE_KEY, id);
 }
 
 export function hasReviewedToilet(id: string): boolean {

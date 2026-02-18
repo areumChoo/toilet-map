@@ -2,21 +2,37 @@
 
 import { useState, useEffect } from "react";
 import type { Password } from "@/types";
-import { REPORT_THRESHOLD } from "@/lib/constants";
-import { hasReportedPassword, markPasswordReported } from "@/lib/local-actions";
+import { FRESHNESS_RECENT_DAYS, FRESHNESS_MODERATE_DAYS } from "@/lib/constants";
+import { hasVotedPassword } from "@/lib/local-actions";
 
 interface PasswordCardProps {
   password: Password;
-  onReport: (id: string) => Promise<boolean>;
+  onVote: (id: string, vote: "confirm" | "wrong", newPassword?: string) => Promise<boolean>;
 }
 
-export default function PasswordCard({ password, onReport }: PasswordCardProps) {
+function getFreshness(lastConfirmedAt: string | null) {
+  if (!lastConfirmedAt) return { label: "미확인", color: "text-gray-400" };
+  const days = Math.floor(
+    (Date.now() - new Date(lastConfirmedAt).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (days <= FRESHNESS_RECENT_DAYS) {
+    return { label: `${days}일 전 확인`, color: "text-green-500" };
+  }
+  if (days <= FRESHNESS_MODERATE_DAYS) {
+    return { label: `${days}일 전 확인`, color: "text-yellow-500" };
+  }
+  return { label: "미확인", color: "text-gray-400" };
+}
+
+export default function PasswordCard({ password, onVote }: PasswordCardProps) {
   const [copied, setCopied] = useState(false);
-  const [reporting, setReporting] = useState(false);
-  const [reported, setReported] = useState(false);
+  const [voting, setVoting] = useState(false);
+  const [voted, setVoted] = useState(false);
+  const [showWrongForm, setShowWrongForm] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
-    setReported(hasReportedPassword(password.id));
+    setVoted(hasVotedPassword(password.id));
   }, [password.id]);
 
   const handleCopy = async () => {
@@ -29,34 +45,37 @@ export default function PasswordCard({ password, onReport }: PasswordCardProps) 
     }
   };
 
-  const handleReport = async () => {
-    setReporting(true);
-    const success = await onReport(password.id);
-    if (success) {
-      markPasswordReported(password.id);
-      setReported(true);
-    }
-    setReporting(false);
+  const handleConfirm = async () => {
+    setVoting(true);
+    const success = await onVote(password.id, "confirm");
+    if (success) setVoted(true);
+    setVoting(false);
   };
 
-  const isWarning = password.report_count >= REPORT_THRESHOLD;
+  const handleWrongSubmit = async () => {
+    setVoting(true);
+    const success = await onVote(password.id, "wrong", newPassword || undefined);
+    if (success) {
+      setVoted(true);
+      setShowWrongForm(false);
+      setNewPassword("");
+    }
+    setVoting(false);
+  };
+
+  const freshness = getFreshness(password.last_confirmed_at);
 
   return (
-    <div
-      className={`rounded-xl border p-3 ${
-        isWarning
-          ? "border-red-200 bg-red-50/60"
-          : "border-gray-100 bg-gray-50/50"
-      }`}
-    >
+    <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3">
       <div className="flex items-center gap-2">
         {/* 위치 라벨 */}
         <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
           {password.location}
         </span>
-        <span className="text-xs text-gray-300">
-          {new Date(password.created_at).toLocaleDateString("ko-KR")}
-        </span>
+        <span className={`text-xs ${freshness.color}`}>{freshness.label}</span>
+        {password.confirm_count > 0 && (
+          <span className="text-xs text-green-500">{password.confirm_count}명 확인</span>
+        )}
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -87,26 +106,49 @@ export default function PasswordCard({ password, onReport }: PasswordCardProps) 
           </button>
         </div>
 
-        {/* 신고 */}
-        {reported ? (
-          <span className="shrink-0 rounded-full px-2 py-1 text-xs text-orange-500">
-            신고완료
+        {/* 투표 */}
+        {voted ? (
+          <span className="shrink-0 rounded-full px-2 py-1 text-xs text-gray-400">
+            투표완료
           </span>
         ) : (
-          <button
-            onClick={handleReport}
-            disabled={reporting}
-            className="shrink-0 rounded-full px-2 py-1 text-xs text-gray-400 active:bg-gray-100 disabled:opacity-50"
-          >
-            신고 {password.report_count > 0 && `(${password.report_count})`}
-          </button>
+          <div className="flex shrink-0 gap-1">
+            <button
+              onClick={handleConfirm}
+              disabled={voting}
+              className="rounded-full px-2 py-1 text-xs text-green-600 active:bg-green-50 disabled:opacity-50"
+            >
+              맞아요
+            </button>
+            <button
+              onClick={() => setShowWrongForm((v) => !v)}
+              disabled={voting}
+              className="rounded-full px-2 py-1 text-xs text-red-500 active:bg-red-50 disabled:opacity-50"
+            >
+              틀려요
+            </button>
+          </div>
         )}
       </div>
 
-      {isWarning && (
-        <p className="mt-1.5 text-xs text-red-500">
-          신고가 많아 정확하지 않을 수 있습니다
-        </p>
+      {/* 틀려요 폼 */}
+      {showWrongForm && !voted && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="새 비밀번호 (선택)"
+            className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-blue-300"
+          />
+          <button
+            onClick={handleWrongSubmit}
+            disabled={voting}
+            className="shrink-0 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white active:bg-red-600 disabled:opacity-50"
+          >
+            제출
+          </button>
+        </div>
       )}
     </div>
   );
