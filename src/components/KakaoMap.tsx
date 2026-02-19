@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import Script from "next/script";
-import { DEFAULT_ZOOM_LEVEL } from "@/lib/constants";
+import { DEFAULT_LAT, DEFAULT_LNG, DEFAULT_ZOOM_LEVEL } from "@/lib/constants";
 import type { SelectedBuilding, Building } from "@/types";
 
 interface KakaoMapProps {
@@ -32,11 +32,12 @@ export default function KakaoMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<kakao.maps.CustomOverlay[]>([]);
+  const myLocationOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const scriptLoadingRef = useRef(false);
   const sdkReadyRef = useRef(false);
 
   const initMap = useCallback(() => {
-    if (!mapContainerRef.current || !locationLoaded) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
     const center = new window.kakao.maps.LatLng(lat, lng);
     const map = new window.kakao.maps.Map(mapContainerRef.current, {
@@ -45,17 +46,19 @@ export default function KakaoMap({
     });
     mapRef.current = map;
 
-    // 내 위치 파란 점 마커
+    // 내 위치 파란 점 마커 (GPS 획득 전이면 숨김)
+    const isDefault = lat === DEFAULT_LAT && lng === DEFAULT_LNG;
     const myLocationContent = document.createElement("div");
     myLocationContent.innerHTML = `
       <div style="width:18px;height:18px;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 0 6px rgba(66,133,244,0.5);"></div>
     `;
-    new window.kakao.maps.CustomOverlay({
+    const myLocationOverlay = new window.kakao.maps.CustomOverlay({
       position: center,
       content: myLocationContent,
-      map,
+      map: isDefault ? undefined : map,
       zIndex: 1,
     });
+    myLocationOverlayRef.current = myLocationOverlay;
 
     const geocoder = new window.kakao.maps.services.Geocoder();
 
@@ -97,7 +100,7 @@ export default function KakaoMap({
     window.kakao.maps.event.addListener(map, "idle", emitBounds);
     // 초기 로드 시에도 한 번 호출
     emitBounds();
-  }, [lat, lng, locationLoaded, onMapClick, onBoundsChange]);
+  }, [lat, lng, onMapClick, onBoundsChange]);
 
   const handleScriptLoad = useCallback(() => {
     if (scriptLoadingRef.current) return;
@@ -108,12 +111,21 @@ export default function KakaoMap({
     });
   }, [initMap]);
 
-  // SDK 로드 후 위치가 뒤늦게 확보된 경우
+  // GPS 완료 시 지도 중심 이동 + 내 위치 마커 표시
   useEffect(() => {
-    if (sdkReadyRef.current && locationLoaded && !mapRef.current) {
-      initMap();
+    const map = mapRef.current;
+    if (!map) return;
+    const isDefault = lat === DEFAULT_LAT && lng === DEFAULT_LNG;
+    if (isDefault) return;
+
+    const newCenter = new window.kakao.maps.LatLng(lat, lng);
+    map.setCenter(newCenter);
+
+    if (myLocationOverlayRef.current) {
+      myLocationOverlayRef.current.setPosition(newCenter);
+      myLocationOverlayRef.current.setMap(map);
     }
-  }, [locationLoaded, initMap]);
+  }, [lat, lng]);
 
   // 마커 업데이트
   useEffect(() => {

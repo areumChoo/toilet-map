@@ -13,14 +13,11 @@ export function useGeolocation(): GeolocationState {
   const [state, setState] = useState<GeolocationState>({
     lat: DEFAULT_LAT,
     lng: DEFAULT_LNG,
-    loaded: false,
+    loaded: true,
   });
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setState((prev) => ({ ...prev, loaded: true }));
-      return;
-    }
+    if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -31,10 +28,9 @@ export function useGeolocation(): GeolocationState {
         });
       },
       () => {
-        // 위치 권한 거부 시 기본값 사용
-        setState((prev) => ({ ...prev, loaded: true }));
+        // 위치 권한 거부 시 기본값 유지
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { timeout: 5000 }
     );
   }, []);
 
