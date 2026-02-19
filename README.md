@@ -42,7 +42,7 @@ npm install
 npm run dev
 ```
 
-[http://localhost:3000](http://localhost:3000)에서 앱을 확인할 수 있습니다.
+[https://toilet-map-sigma.vercel.app](https://toilet-map-sigma.vercel.app)에서 앱을 확인할 수 있습니다.
 
 ### 빌드
 
