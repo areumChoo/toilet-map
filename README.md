@@ -43,11 +43,6 @@ SUPABASE_SERVICE_ROLE_KEY=<Supabase Service Role Key>
 npm install
 npm run dev
 ```
-
-[https://toilet-map-sigma.vercel.app](https://toilet-map-sigma.vercel.app)에서 앱을 확인할 수 있습니다.
-
-배포된 버전은 [https://toilet-map-sigma.vercel.app](https://toilet-map-sigma.vercel.app)에서 이용할 수 있습니다.
-
 ### 빌드
 
 ```bash
