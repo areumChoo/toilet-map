@@ -1,5 +1,7 @@
 # 화장실 비밀번호 지도
 
+> **https://toilet-map-sigma.vercel.app**
+
 주변 건물 화장실 비밀번호를 조회하고 등록할 수 있는 크라우드소싱 지도 앱입니다. 지도에서 건물을 선택하면 다른 사용자들이 공유한 화장실 비밀번호를 확인하고, 직접 새로운 비밀번호를 등록하거나 기존 비밀번호에 투표할 수 있습니다.
 
 ## 주요 기능
@@ -43,6 +45,8 @@ npm run dev
 ```
 
 [https://toilet-map-sigma.vercel.app](https://toilet-map-sigma.vercel.app)에서 앱을 확인할 수 있습니다.
+
+배포된 버전은 [https://toilet-map-sigma.vercel.app](https://toilet-map-sigma.vercel.app)에서 이용할 수 있습니다.
 
 ### 빌드
 
