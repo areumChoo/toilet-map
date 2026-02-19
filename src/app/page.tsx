@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import KakaoMap from "@/components/KakaoMap";
 import BuildingPanel from "@/components/BuildingPanel";
 import MapFilter from "@/components/MapFilter";
+import DonationButton from "@/components/DonationButton";
 import type { MapFilterType } from "@/components/MapFilter";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import type { SelectedBuilding, Building } from "@/types";
@@ -110,6 +111,7 @@ export default function Home() {
       />
       <MapFilter filter={filter} onFilterChange={setFilter} />
       <BuildingPanel building={selectedBuilding} onClose={handleClose} />
+      <DonationButton />
     </div>
   );
 }
