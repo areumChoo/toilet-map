@@ -18,9 +18,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 화장실이 1개 이상인 건물만 반환 (inner join)
   const { data, error } = await supabase
     .from("buildings")
-    .select("*, toilets(id, passwords(id))")
+    .select("id, name, address, road_address, lat, lng, toilets!inner(id, passwords(id))")
     .gte("lat", parseFloat(swLat))
     .lte("lat", parseFloat(neLat))
     .gte("lng", parseFloat(swLng))
@@ -30,15 +31,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // toilet 중 하나라도 password가 있는 건물만 반환
-  const filtered = (data ?? [])
-    .filter((b: Record<string, unknown>) => {
-      const toilets = b.toilets as { passwords: unknown[] }[] | undefined;
-      return toilets?.some((t) => t.passwords.length > 0) ?? false;
-    })
-    .map(({ toilets: _t, ...rest }) => rest);
+  const buildings = (data ?? []).map(({ toilets, ...rest }) => ({
+    ...rest,
+    has_passwords: (toilets as { passwords: unknown[] }[]).some(
+      (t) => t.passwords.length > 0
+    ),
+  }));
 
-  return NextResponse.json(filtered);
+  return NextResponse.json(buildings);
 }
 
 // POST: 건물 upsert (주소 기준)

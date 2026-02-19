@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import KakaoMap from "@/components/KakaoMap";
 import BuildingPanel from "@/components/BuildingPanel";
+import MapFilter from "@/components/MapFilter";
+import type { MapFilterType } from "@/components/MapFilter";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import type { SelectedBuilding, Building } from "@/types";
 
@@ -29,8 +31,14 @@ export default function Home() {
   const [selectedBuilding, setSelectedBuilding] =
     useState<SelectedBuilding | null>(null);
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [filter, setFilter] = useState<MapFilterType>("all");
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasAutoSelected = useRef(false);
+
+  const filteredBuildings = useMemo(() => {
+    if (filter === "all") return buildings;
+    return buildings.filter((b) => !b.has_passwords);
+  }, [buildings, filter]);
 
   const handleMapClick = useCallback((building: SelectedBuilding) => {
     setSelectedBuilding(building);
@@ -97,9 +105,10 @@ export default function Home() {
         locationLoaded={loaded}
         onMapClick={handleMapClick}
         onBoundsChange={handleBoundsChange}
-        buildings={buildings}
+        buildings={filteredBuildings}
         onMarkerClick={handleMarkerClick}
       />
+      <MapFilter filter={filter} onFilterChange={setFilter} />
       <BuildingPanel building={selectedBuilding} onClose={handleClose} />
     </div>
   );

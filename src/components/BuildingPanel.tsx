@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { SelectedBuilding, Password, Toilet } from "@/types";
 import PasswordCard from "./PasswordCard";
 import PasswordForm from "./PasswordForm";
+import ToiletForm from "./ToiletForm";
 import ReviewSection from "./ReviewSection";
 import { markPasswordVoted } from "@/lib/local-actions";
 
@@ -22,6 +23,7 @@ export default function BuildingPanel({
   const [selectedToiletId, setSelectedToiletId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [regMode, setRegMode] = useState<"password" | "free">("password");
 
   // 드래그 관련
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -133,6 +135,31 @@ export default function BuildingPanel({
       if (data.id) {
         setPasswords((prev) => [data, ...prev]);
         // 비밀번호 등록 시 새 toilet이 생성될 수 있으므로 목록 갱신
+        const toiletRes = await fetch(`/api/buildings/${buildingId}/toilets`);
+        const toiletData = await toiletRes.json();
+        if (Array.isArray(toiletData)) setToilets(toiletData);
+      }
+    } catch {
+      // 에러 처리
+    }
+  };
+
+  const handleAddFreeToilet = async (location: string) => {
+    if (!buildingId) return;
+    try {
+      const res = await fetch(`/api/buildings/${buildingId}/toilets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location }),
+      });
+
+      if (res.status === 429) {
+        alert("너무 많은 요청입니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+
+      const data = await res.json();
+      if (data.id) {
         const toiletRes = await fetch(`/api/buildings/${buildingId}/toilets`);
         const toiletData = await toiletRes.json();
         if (Array.isArray(toiletData)) setToilets(toiletData);
@@ -263,55 +290,105 @@ export default function BuildingPanel({
         </div>
 
         <div className="space-y-3 px-4 pb-4">
-          {/* 비밀번호 목록 */}
-          {loading ? (
-            <div className="space-y-2 py-2">
-              {[1, 2].map((i) => (
-                <div key={i} className="animate-pulse rounded-lg border border-gray-100 p-3">
-                  <div className="h-3 w-24 rounded bg-gray-200" />
-                  <div className="mt-2 h-5 w-32 rounded bg-gray-200" />
-                </div>
-              ))}
-            </div>
-          ) : passwords.length === 0 ? (
-            <div className="flex flex-col items-center py-6 text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mb-2 text-gray-300"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <p className="text-sm">등록된 비밀번호가 없습니다</p>
-              <p className="mt-1 text-xs text-gray-300">아래에서 첫 번째로 등록해보세요!</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {passwords.map((pw) => (
-                <PasswordCard
-                  key={pw.id}
-                  password={pw}
-                  onVote={handleVote}
-                />
-              ))}
-            </div>
-          )}
+          {/* 화장실 목록 */}
+          {(() => {
+            const toiletIdsWithPasswords = new Set(passwords.map((p) => p.toilet_id));
+            const freeToilets = toilets.filter((t) => !toiletIdsWithPasswords.has(t.id));
 
-          {/* 비밀번호 등록 폼 */}
+            if (loading) {
+              return (
+                <div className="space-y-2 py-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="animate-pulse rounded-lg border border-gray-100 p-3">
+                      <div className="h-3 w-24 rounded bg-gray-200" />
+                      <div className="mt-2 h-5 w-32 rounded bg-gray-200" />
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            if (passwords.length === 0 && freeToilets.length === 0) {
+              return (
+                <div className="flex flex-col items-center py-6 text-gray-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mb-2 text-gray-300"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <p className="text-sm">등록된 화장실이 없습니다</p>
+                  <p className="mt-1 text-xs text-gray-300">아래에서 첫 번째로 등록해보세요!</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2">
+                {passwords.map((pw) => (
+                  <PasswordCard
+                    key={pw.id}
+                    password={pw}
+                    onVote={handleVote}
+                  />
+                ))}
+                {freeToilets.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-2 rounded-xl border border-green-100 bg-green-50/50 p-3"
+                  >
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      {t.location}
+                    </span>
+                    <span className="text-xs text-green-600">자유 이용</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* 화장실 등록 폼 */}
           {buildingId && (
             <div className="border-t border-gray-100 pt-3">
               <p className="mb-2 text-xs font-medium text-gray-500">
-                비밀번호 등록
+                화장실 등록
               </p>
-              <PasswordForm onSubmit={handleAddPassword} />
+              <div className="mb-2 flex gap-1.5">
+                <button
+                  onClick={() => setRegMode("password")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    regMode === "password"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                  }`}
+                >
+                  비밀번호 있음
+                </button>
+                <button
+                  onClick={() => setRegMode("free")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    regMode === "free"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-600 active:bg-gray-200"
+                  }`}
+                >
+                  비밀번호 없음
+                </button>
+              </div>
+              {regMode === "password" ? (
+                <PasswordForm onSubmit={handleAddPassword} />
+              ) : (
+                <ToiletForm onSubmit={handleAddFreeToilet} />
+              )}
             </div>
           )}
 

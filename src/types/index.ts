@@ -5,6 +5,7 @@ export interface Building {
   road_address: string | null;
   lat: number;
   lng: number;
+  has_passwords: boolean;
   created_at: string;
 }
 

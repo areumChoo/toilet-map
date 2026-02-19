@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getClientIp } from "@/lib/get-ip";
+import { checkRateLimit, recordAction } from "@/lib/rate-limit";
 
 // GET: 건물별 화장실 목록
 export async function GET(
@@ -37,6 +39,20 @@ export async function POST(
     );
   }
 
+  const ip = getClientIp(request);
+  const globalCheck = await checkRateLimit(ip, {
+    action: "toilet",
+    maxRequests: 10,
+    windowMinutes: 10,
+  });
+
+  if (!globalCheck.allowed) {
+    return NextResponse.json(
+      { error: "너무 많은 요청입니다. 잠시 후 다시 시도해주세요." },
+      { status: 429 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("toilets")
     .upsert(
@@ -49,6 +65,8 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await recordAction(ip, "toilet");
 
   return NextResponse.json(data, { status: 201 });
 }
